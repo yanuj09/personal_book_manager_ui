@@ -10,7 +10,7 @@ const apiUrl =  process.env.PRODUCTION_BASE_URL?.trim() || process.env.NEXT_PUBL
 
 export const env = {
   // Default to local backend so the app does not silently fall back to mock.
-  apiUrl: apiBaseUrl || apiUrl || "http://localhost:3567",
+  apiUrl:  "https://personal-book-manager-backend-fw3z.onrender.com",
   appName: process.env.NEXT_PUBLIC_APP_NAME || "Thumbstack",
 } as const;
 
