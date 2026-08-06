@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Personal Book Manager UI
+
+A responsive, theme-aware frontend for a personal reading tracker built with Next.js App Router.
+
+## Features
+
+- Authentication flow (login and signup)
+- Protected app shell with responsive sidebar and mobile drawer
+- Dashboard with reading stats and quick-add
+- Collection page with search, status filters, tags, and sorting
+- Add, edit, and detail pages for books
+- Settings page with:
+	- profile update
+	- password update
+	- theme preference (light, dark, system)
+	- export collection
+	- clear collection
+- Toast notifications and loading states
+- Mock backend support for local frontend-only development
+
+## Tech Stack
+
+- Next.js 16 (App Router)
+- React 19
+- TypeScript
+- Tailwind CSS v4
 
 ## Getting Started
 
-First, run the development server:
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Start development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+3. Open http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run dev
+npm run build
+npm run start
+```
 
-## Learn More
+## Route Map
 
-To learn more about Next.js, take a look at the following resources:
+- `/` smart redirect to login or dashboard based on session
+- `/login`
+- `/signup`
+- `/dashboard`
+- `/collection`
+- `/books/new`
+- `/books/[id]`
+- `/books/[id]/edit`
+- `/settings`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Backend Mode
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This project runs with a browser mock backend by default.
 
-## Deploy on Vercel
+- If `NEXT_PUBLIC_API_URL` is empty, it uses the local mock backend.
+- If `NEXT_PUBLIC_API_URL` is set, services call the real API.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Notes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Auth token and cached user are stored in localStorage.
+- Mock data is persisted in localStorage per user.

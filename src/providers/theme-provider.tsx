@@ -8,11 +8,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { THEME_STORAGE_KEY } from "@/lib/theme";
 
 export type ThemePreference = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
-
-export const THEME_STORAGE_KEY = "pbm.theme";
 
 interface ThemeContextValue {
   /** What the user chose, including "system". */
@@ -24,25 +23,6 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
-
-/**
- * Runs before paint, in the document head, so the correct theme is on <html>
- * from the very first frame. Without it, a dark-mode user sees a white flash on
- * every hard load.
- *
- * Keep this in sync with the provider below — it is the same decision, made
- * earlier.
- */
-export const themeInitScript = `
-(function () {
-  try {
-    var stored = localStorage.getItem('${THEME_STORAGE_KEY}');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var dark = stored === 'dark' || ((!stored || stored === 'system') && prefersDark);
-    document.documentElement.classList.toggle('dark', dark);
-  } catch (e) {}
-})();
-`;
 
 function systemTheme(): ResolvedTheme {
   if (typeof window === "undefined") return "light";
