@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Book } from "@/models/book.model";
 import { routes } from "@/lib/routes";
 import { StatusBadge } from "@/components/ui/badge";
-import { ProgressBar } from "@/components/ui/progress-bar";
 import { BookCover } from "./book-cover";
 
 /** Grid tile used across the collection. The whole card is one link target. */
@@ -26,9 +25,6 @@ export function BookCard({ book }: { book: Book }) {
 
       <div className="mt-auto space-y-2 px-0.5 pb-0.5">
         <StatusBadge status={book.status} />
-        {book.status === "reading" && (
-          <ProgressBar value={book.progress} showValue />
-        )}
       </div>
     </Link>
   );

@@ -23,7 +23,6 @@ import { Select } from "@/components/ui/select";
 import { TagInput } from "@/components/ui/tag-input";
 import { Textarea } from "@/components/ui/textarea";
 import { IconAlert, IconChevronLeft } from "@/components/ui/icons";
-import { ProgressField } from "./progress-field";
 
 const STATUS_OPTIONS = BOOK_STATUS_LIST.map((meta) => ({
   value: meta.value,
@@ -107,36 +106,14 @@ function FormScaffold({
             onChange={(value) => setField("tags", value)}
           />
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Select
-              label="Status"
-              value={draft.status}
-              options={STATUS_OPTIONS}
-              onChange={(event) =>
-                setField("status", event.target.value as BookStatus)
-              }
-            />
-
-            {draft.status === "reading" ? (
-              <ProgressField
-                value={draft.progress}
-                error={errors.progress}
-                onChange={(value) => setField("progress", value)}
-              />
-            ) : (
-              <Input
-                label="Progress"
-                value={
-                  draft.status === "completed"
-                    ? "100%"
-                    : draft.status === "want-to-read"
-                      ? "0%"
-                      : `${draft.progress}%`
-                }
-                disabled
-              />
-            )}
-          </div>
+          <Select
+            label="Status"
+            value={draft.status}
+            options={STATUS_OPTIONS}
+            onChange={(event) =>
+              setField("status", event.target.value as BookStatus)
+            }
+          />
 
           <Textarea
             label="Notes"

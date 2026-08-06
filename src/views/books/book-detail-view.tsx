@@ -16,7 +16,6 @@ import { Button, buttonStyles } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ProgressBar } from "@/components/ui/progress-bar";
 import { LoadingPanel } from "@/components/ui/spinner";
 import { StatusBadge, TagBadge } from "@/components/ui/badge";
 import { IconChevronLeft, IconPencil, IconTrash } from "@/components/ui/icons";
@@ -204,15 +203,12 @@ export function BookDetailView({ id }: { id: string }) {
         <div className="space-y-6">
           <Card>
             <CardHeader title="Reading status" />
-            <div className="mt-3 space-y-3">
+            <div className="mt-3">
               <StatusControl
                 value={currentBook.status}
                 onChange={onStatusChange}
                 disabled={savingStatus}
               />
-              {currentBook.status === "reading" && (
-                <ProgressBar value={currentBook.progress} showValue />
-              )}
             </div>
           </Card>
 

@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Book } from "@/models/book.model";
 import { routes } from "@/lib/routes";
 import { BookCover } from "@/components/books/book-cover";
-import { ProgressBar } from "@/components/ui/progress-bar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonStyles } from "@/components/ui/button";
 import { IconBookOpen } from "@/components/ui/icons";
@@ -19,7 +18,7 @@ export function CurrentlyReading({ books }: { books: Book[] }) {
       <EmptyState
         icon={<IconBookOpen />}
         title="Nothing open right now"
-        description="Move a book to Reading and it'll show up here with its progress."
+        description="Move a book to Reading and it'll show up here."
         action={
           <Link href={routes.collection} className={buttonStyles("secondary", "sm")}>
             Browse your collection
@@ -45,7 +44,6 @@ export function CurrentlyReading({ books }: { books: Book[] }) {
               <p className="truncate text-[11px] text-ink-muted">
                 {book.author}
               </p>
-              <ProgressBar value={book.progress} showValue />
             </div>
           </Link>
         </li>

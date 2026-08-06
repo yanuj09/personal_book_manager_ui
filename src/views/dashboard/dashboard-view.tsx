@@ -144,22 +144,14 @@ export function DashboardView() {
           value={currentlyReading}
           icon={<IconBookOpen />}
           accentClassName="bg-warning-soft text-warning"
-          footnote={
-            currentlyReading > 0
-              ? `${stats.averageProgress}% average progress`
-              : undefined
-          }
+          footnote={currentlyReading > 0 ? "Keep your streak going" : undefined}
         />
         <StatCard
           label="Completed"
           value={completedBooks}
           icon={<IconCheckCircle />}
           accentClassName="bg-success-soft text-success"
-          footnote={
-            totalBooks > 0
-              ? `${stats.completionRate}% of your collection`
-              : undefined
-          }
+          footnote={completedBooks > 0 ? `${completedBooks} finished so far` : undefined}
         />
       </div>
 
