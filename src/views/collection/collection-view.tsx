@@ -222,9 +222,20 @@ export function CollectionView() {
           title="Your shelf is waiting"
           description="Add the book on your nightstand and everything else follows from there."
           action={
-            <Link href={routes.newBook} className={buttonStyles("primary", "sm")}>
-              Add your first book
-            </Link>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {isFiltered && (
+                <button
+                  type="button"
+                  onClick={reset}
+                  className={buttonStyles("secondary", "sm")}
+                >
+                  Back to collection
+                </button>
+              )}
+              <Link href={routes.newBook} className={buttonStyles("primary", "sm")}>
+                Add your first book
+              </Link>
+            </div>
           }
         />
       ) : (

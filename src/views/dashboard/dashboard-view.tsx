@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { BookStatus } from "@/models/book.model";
@@ -44,10 +44,50 @@ export function DashboardView() {
   const [pending, setPending] = useState<string[]>([]);
 
   async function onStatusChange(id: string, next: BookStatus) {
+    const previousSnapshot = dashboard?.books.find((book) => book.id === id);
+
+    setDashboard((current) => {
+      if (!current) return current;
+
+      return {
+        ...current,
+        books: current.books.map((book) => {
+          if (book.id !== id) return book;
+
+          const nextProgress =
+            next === "completed"
+              ? 100
+              : next === "want-to-read"
+                ? 0
+                : book.progress;
+
+          return {
+            ...book,
+            status: next,
+            progress: nextProgress,
+            completedAt:
+              next === "completed" ? new Date().toISOString() : null,
+          };
+        }),
+      };
+    });
+
     setPending((current) => [...current, id]);
     try {
       await changeStatus(id, next);
     } catch (caught) {
+      if (previousSnapshot) {
+        setDashboard((current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            books: current.books.map((book) =>
+              book.id === id ? previousSnapshot : book,
+            ),
+          };
+        });
+      }
+
       notify(
         caught instanceof Error ? caught.message : "Couldn't update that book.",
         "error",
@@ -80,6 +120,11 @@ export function DashboardView() {
     };
   }, [pathname]);
 
+  const booksById = useMemo(
+    () => new Map(books.map((book) => [book.id, book])),
+    [books],
+  );
+
   if (status === "loading") return <LoadingPanel label="Gathering your shelf" />;
 
   if (status === "error") {
@@ -102,7 +147,9 @@ export function DashboardView() {
 
   const firstName = user?.name?.trim().split(/\s+/)[0] ?? "reader";
   const recentBooks = dashboard
-    ? dashboard.books.slice(0, RECENT_LIMIT)
+    ? dashboard.books
+        .map((book) => booksById.get(book.id) ?? book)
+        .slice(0, RECENT_LIMIT)
     : [...books].sort(compareBooks("recent")).slice(0, RECENT_LIMIT);
   const totalBooks = dashboard?.metrics.totalBooks ?? stats.total;
   const currentlyReading = dashboard?.metrics.currentlyReading ?? stats.reading;
