@@ -6,7 +6,10 @@
  * the in-browser mock so the UI is demoable on its own.
  */
 export const env = {
-  apiUrl: process.env.NEXT_PUBLIC_API_URL ?? "",
+  apiUrl:
+    process.env.NEXT_PUBLIC_API_BASE_URL ??
+    process.env.NEXT_PUBLIC_API_URL ??
+    "",
   appName: process.env.NEXT_PUBLIC_APP_NAME || "Thumbstack",
 } as const;
 

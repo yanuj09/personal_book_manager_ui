@@ -1,9 +1,15 @@
+import axios from "axios";
+import type {
+  AxiosError,
+  AxiosRequestConfig,
+  AxiosResponse,
+  InternalAxiosRequestConfig,
+} from "axios";
 import { env } from "@/lib/env";
 import { ApiError } from "./api-error";
 import { tokenStorage } from "./token-storage";
 
 type Body = Record<string, unknown> | undefined;
-type Method = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
 interface RequestOptions {
   /** Skip the Authorization header — used by login and signup. */
@@ -11,157 +17,60 @@ interface RequestOptions {
   signal?: AbortSignal;
   headers?: Record<string, string>;
   /**
-   * Defaults to "include" so cookie auth works out of the box.
-   * Can be overridden for edge cases.
+   * Keep cookie auth enabled by default. Use "omit" to opt out for one request.
    */
   credentials?: RequestCredentials;
 }
 
-interface RequestContext {
-  method: Method;
-  path: string;
-  url: string;
-  body?: Body;
-  options: RequestOptions;
-  headers: Record<string, string>;
-  init: RequestInit;
+interface RequestConfig extends AxiosRequestConfig {
+  anonymous?: boolean;
 }
 
-interface ResponseContext<T> {
-  request: RequestContext;
-  response: Response;
-  raw: string;
-  payload: unknown;
-  data: T;
-}
-
-type RequestInterceptor =
-  | ((context: RequestContext) => RequestContext)
-  | ((context: RequestContext) => Promise<RequestContext>);
-type ResponseInterceptor =
-  | (<T>(context: ResponseContext<T>) => ResponseContext<T>)
-  | (<T>(context: ResponseContext<T>) => Promise<ResponseContext<T>>);
-type ErrorInterceptor =
-  | ((error: unknown) => unknown)
-  | ((error: unknown) => Promise<unknown>);
-
-const requestInterceptors: RequestInterceptor[] = [];
-const responseInterceptors: ResponseInterceptor[] = [];
-const errorInterceptors: ErrorInterceptor[] = [];
-
-requestInterceptors.push((context) => {
-  const headers: Record<string, string> = {
+const api = axios.create({
+  baseURL: env.apiUrl,
+  withCredentials: true,
+  headers: {
     Accept: "application/json",
-    ...(context.options.headers ?? {}),
-  };
+    "Content-Type": "application/json",
+  },
+});
 
-  if (context.body !== undefined) headers["Content-Type"] = "application/json";
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const next = config as InternalAxiosRequestConfig & { anonymous?: boolean };
 
-  if (!context.options.anonymous) {
+  if (!next.anonymous) {
     const token = tokenStorage.read();
-    if (token) headers.Authorization = `Bearer ${token}`;
+    if (token) next.headers.Authorization = `Bearer ${token}`;
   }
 
-  return {
-    ...context,
-    headers,
-    init: {
-      ...context.init,
-      headers,
-      credentials: context.options.credentials ?? "include",
-      body:
-        context.body === undefined ? undefined : JSON.stringify(context.body),
-    },
-  };
+  return next;
 });
 
-errorInterceptors.push((error) => {
-  if (error instanceof DOMException && error.name === "AbortError") return error;
-  if (error instanceof ApiError) {
-    if (error.isUnauthorized) tokenStorage.clear();
-    return error;
-  }
-  if (error instanceof Error) {
-    return new ApiError(error.message);
-  }
-  return new ApiError("Can't reach the server. Check your connection.", 0);
-});
+api.interceptors.response.use(
+  (response) => {
+    response.data = unwrapSuccess(response.data);
+    return response;
+  },
+  (error: AxiosError) => {
+    const normalized = toApiError(error);
+    if (normalized.isUnauthorized) tokenStorage.clear();
+    return Promise.reject(normalized);
+  },
+);
 
-async function request<T>(
-  method: Method,
-  path: string,
-  body?: Body,
-  options: RequestOptions = {},
-): Promise<T> {
-  let requestContext: RequestContext = {
-    method,
-    path,
-    url: `${env.apiUrl}${path}`,
-    body,
-    options,
-    headers: {},
-    init: {
-      method,
-      signal: options.signal,
-    },
-  };
-
-  for (const interceptor of requestInterceptors) {
-    requestContext = await interceptor(requestContext);
+function toApiError(error: AxiosError): ApiError {
+  if (!error.response) {
+    return new ApiError("Can't reach the server. Check your connection.", 0);
   }
 
-  let response: Response;
-  try {
-    response = await fetch(requestContext.url, requestContext.init);
-  } catch (error) {
-    throw await runErrorInterceptors(error);
-  }
+  const status = error.response.status;
+  const payload = error.response.data;
 
-  // 204 and friends carry no body.
-  const raw = await response.text();
-  const payload = raw ? safeParse(raw) : null;
-
-  if (!response.ok) {
-    throw await runErrorInterceptors(
-      new ApiError(
-      readMessage(payload) ?? `Request failed (${response.status})`,
-      response.status,
-      readFieldErrors(payload),
-      ),
-    );
-  }
-
-  const data = unwrapSuccess<T>(payload);
-
-  let responseContext: ResponseContext<T> = {
-    request: requestContext,
-    response,
-    raw,
-    payload,
-    data,
-  };
-
-  for (const interceptor of responseInterceptors) {
-    responseContext = await interceptor(responseContext);
-  }
-
-  return responseContext.data;
-}
-
-async function runErrorInterceptors(error: unknown): Promise<unknown> {
-  let nextError = error;
-  for (const interceptor of errorInterceptors) {
-    nextError = await interceptor(nextError);
-  }
-  return nextError;
-}
-
-function safeParse(raw: string): unknown {
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return { message: raw };
-  }
+  return new ApiError(
+    readMessage(payload) ?? `Request failed (${status})`,
+    status,
+    readFieldErrors(payload),
+  );
 }
 
 function readMessage(payload: unknown): string | null {
@@ -185,47 +94,64 @@ function readFieldErrors(payload: unknown): Record<string, string> {
 }
 
 function unwrapSuccess<T>(payload: unknown): T {
-  // Common API envelope style.
   if (payload && typeof payload === "object" && "data" in payload) {
     return (payload as { data: T }).data;
   }
-  // Tolerate bare JSON response bodies.
   return payload as T;
 }
 
-function addInterceptor<T>(list: T[], interceptor: T): () => void {
-  list.push(interceptor);
-  return () => {
-    const index = list.indexOf(interceptor);
-    if (index >= 0) list.splice(index, 1);
+function withRequestOptions(options?: RequestOptions): RequestConfig {
+  const withCredentials = options?.credentials === "omit" ? false : true;
+  return {
+    anonymous: options?.anonymous,
+    signal: options?.signal,
+    headers: options?.headers,
+    withCredentials,
   };
 }
 
 export const httpClient = {
-  get: <T>(path: string, options?: RequestOptions) =>
-    request<T>("GET", path, undefined, options),
-  post: <T>(path: string, body?: Body, options?: RequestOptions) =>
-    request<T>("POST", path, body, options),
-  patch: <T>(path: string, body?: Body, options?: RequestOptions) =>
-    request<T>("PATCH", path, body, options),
-  put: <T>(path: string, body?: Body, options?: RequestOptions) =>
-    request<T>("PUT", path, body, options),
-  delete: <T>(path: string, options?: RequestOptions) =>
-    request<T>("DELETE", path, undefined, options),
+  get: async <T>(path: string, options?: RequestOptions) => {
+    const response = await api.get<T>(path, withRequestOptions(options));
+    return response.data;
+  },
+  post: async <T>(path: string, body?: Body, options?: RequestOptions) => {
+    const response = await api.post<T>(path, body, withRequestOptions(options));
+    return response.data;
+  },
+  patch: async <T>(path: string, body?: Body, options?: RequestOptions) => {
+    const response = await api.patch<T>(path, body, withRequestOptions(options));
+    return response.data;
+  },
+  put: async <T>(path: string, body?: Body, options?: RequestOptions) => {
+    const response = await api.put<T>(path, body, withRequestOptions(options));
+    return response.data;
+  },
+  delete: async <T>(path: string, options?: RequestOptions) => {
+    const response = await api.delete<T>(path, withRequestOptions(options));
+    return response.data;
+  },
   interceptors: {
     request: {
-      use(interceptor: RequestInterceptor) {
-        return addInterceptor(requestInterceptors, interceptor);
+      use(
+        onFulfilled?: (value: InternalAxiosRequestConfig) => InternalAxiosRequestConfig | Promise<InternalAxiosRequestConfig>,
+        onRejected?: (error: unknown) => unknown,
+      ) {
+        return api.interceptors.request.use(onFulfilled, onRejected);
+      },
+      eject(id: number) {
+        api.interceptors.request.eject(id);
       },
     },
     response: {
-      use(interceptor: ResponseInterceptor) {
-        return addInterceptor(responseInterceptors, interceptor);
+      use(
+        onFulfilled?: (value: AxiosResponse) => AxiosResponse | Promise<AxiosResponse>,
+        onRejected?: (error: unknown) => unknown,
+      ) {
+        return api.interceptors.response.use(onFulfilled, onRejected);
       },
-    },
-    error: {
-      use(interceptor: ErrorInterceptor) {
-        return addInterceptor(errorInterceptors, interceptor);
+      eject(id: number) {
+        api.interceptors.response.eject(id);
       },
     },
   },

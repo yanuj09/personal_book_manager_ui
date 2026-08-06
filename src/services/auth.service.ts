@@ -18,34 +18,47 @@ import type {
 import { httpClient } from "./http-client";
 import { mockBackend } from "./mock/mock-backend";
 
+interface UserEnvelope {
+  user: User;
+}
+
 export const authService = {
   signup(payload: SignupPayload): Promise<AuthSession> {
     if (usingMockBackend) return mockBackend.signup(payload);
-    return httpClient.post<AuthSession>("/api/auth/signup", { ...payload }, {
+    return httpClient.post<AuthSession>("/auth/signup", { ...payload }, {
       anonymous: true,
     });
   },
 
   login(credentials: Credentials): Promise<AuthSession> {
     if (usingMockBackend) return mockBackend.login(credentials);
-    return httpClient.post<AuthSession>("/api/auth/login", { ...credentials }, {
+    return httpClient.post<AuthSession>("/auth/login", { ...credentials }, {
       anonymous: true,
     });
   },
 
   /** Verifies a stored token is still good and returns the fresh user. */
-  me(): Promise<User> {
+  async me(): Promise<User> {
     if (usingMockBackend) return mockBackend.me();
-    return httpClient.get<User>("/api/auth/me");
+    const response = await httpClient.get<UserEnvelope>("/profile");
+    return response.user;
   },
 
-  updateProfile(update: ProfileUpdate): Promise<User> {
+  async updateProfile(update: ProfileUpdate): Promise<User> {
     if (usingMockBackend) return mockBackend.updateProfile(update);
-    return httpClient.patch<User>("/api/auth/profile", { ...update });
+    const response = await httpClient.patch<UserEnvelope>("/profile", {
+      ...update,
+    });
+    return response.user;
   },
 
   changePassword(change: PasswordChange): Promise<void> {
     if (usingMockBackend) return mockBackend.changePassword(change);
-    return httpClient.post<void>("/api/auth/password", { ...change });
+    return httpClient.patch<void>("/profile/password", { ...change });
+  },
+
+  logout(): Promise<void> {
+    if (usingMockBackend) return Promise.resolve();
+    return httpClient.post<void>("/auth/logout");
   },
 };
