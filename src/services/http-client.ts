@@ -27,7 +27,8 @@ interface RequestConfig extends AxiosRequestConfig {
 }
 
 const api = axios.create({
-  baseURL: env.apiUrl,
+  // baseURL: env.apiUrl,
+  baseURL: "https://personal-book-manager-backend-fw3z.onrender.com",
   withCredentials: true,
   headers: {
     Accept: "application/json",
