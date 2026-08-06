@@ -1,26 +1,184 @@
 @import "tailwindcss";
 
+/* Class-based dark mode. Tailwind v4 defaults to `prefers-color-scheme`, but we
+   need a user-controllable toggle, so `dark` keys off a class on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------------
+   Design tokens
+   Semantic names only — components never reference a raw hex or a palette step,
+   so re-theming happens here and nowhere else.
+--------------------------------------------------------------------------- */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --canvas: #f6f3ee;
+  --surface: #ffffff;
+  --surface-sunken: #efeae2;
+  --surface-raised: #ffffff;
+
+  --border: #e4ded4;
+  --border-strong: #d3cabb;
+
+  --ink: #16202e;
+  --ink-muted: #66748a;
+  --ink-subtle: #8d99a8;
+
+  --primary: #1e3a5f;
+  --primary-hover: #17304f;
+  --primary-ink: #ffffff;
+  --primary-soft: #e6ecf4;
+
+  --accent: #c0573b;
+  --accent-soft: #f7e9e4;
+
+  --danger: #b3402f;
+  --danger-soft: #fbe9e6;
+
+  --success: #2f7d5d;
+  --success-soft: #e3f2ea;
+
+  --warning: #a86711;
+  --warning-soft: #fbeedb;
+
+  --ring: #1e3a5f;
+  --shadow-color: 214 30% 20%;
+}
+
+.dark {
+  --canvas: #0f141a;
+  --surface: #171e26;
+  --surface-sunken: #12181f;
+  --surface-raised: #1d262f;
+
+  --border: #2a3540;
+  --border-strong: #3a4855;
+
+  --ink: #e7e5e1;
+  --ink-muted: #93a1b0;
+  --ink-subtle: #74818f;
+
+  --primary: #5b8fc7;
+  --primary-hover: #6f9ed1;
+  --primary-ink: #0b1017;
+  --primary-soft: #1b2836;
+
+  --accent: #dd7b58;
+  --accent-soft: #2e211c;
+
+  --danger: #e0705c;
+  --danger-soft: #331d1a;
+
+  --success: #5cbd92;
+  --success-soft: #16281f;
+
+  --warning: #e0a955;
+  --warning-soft: #2c2317;
+
+  --ring: #5b8fc7;
+  --shadow-color: 220 40% 2%;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-raised: var(--surface-raised);
+
+  --color-border-base: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-ink: var(--primary-ink);
+  --color-primary-soft: var(--primary-soft);
+
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-display);
+
+  --radius-card: 0.875rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ---------------------------------------------------------------------------
+   Base
+--------------------------------------------------------------------------- */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* One consistent focus ring across every interactive element. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--primary);
+    color: var(--primary-ink);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  /* Cross-browser thin scrollbar for the sidebar and scroll rails. */
+  .scrollbar-slim {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+
+  .scrollbar-slim::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-slim::-webkit-scrollbar-thumb {
+    background-color: var(--border-strong);
+    border-radius: 9999px;
+  }
+
+  .scrollbar-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* Respect users who ask for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
