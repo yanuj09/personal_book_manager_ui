@@ -11,8 +11,7 @@ import { mockBackend } from "./mock/mock-backend";
 type ApiBookStatus = "want_to_read" | "reading" | "completed";
 
 interface ApiBook {
-  _id?: string;
-  id?: string;
+  _id: string;
   title: string;
   author: string;
   description?: string;
@@ -25,6 +24,12 @@ interface ApiBook {
 
 interface ListBooksResponse {
   books: ApiBook[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 interface BookEnvelope {
@@ -49,6 +54,24 @@ export interface DashboardSummary {
   books: Book[];
 }
 
+export interface BookListQuery {
+  status?: Book["status"];
+  tag?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface BookListResult {
+  books: Book[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 function toUiStatus(status: ApiBookStatus | undefined): Book["status"] {
   if (status === "want_to_read") return "want-to-read";
   if (status === "completed") return "completed";
@@ -64,7 +87,8 @@ function toApiStatus(status: Book["status"]): ApiBookStatus {
 function toUiBook(book: ApiBook): Book {
   const status = toUiStatus(book.status);
   return {
-    id: book._id ?? book.id ?? "",
+    // In real API mode, id must come from MongoDB _id only.
+    id: book._id,
     title: book.title,
     author: book.author,
     description: book.description ?? "",
@@ -100,12 +124,43 @@ function toUpdatePayload(patch: Partial<BookDraft>) {
   return payload;
 }
 
+function toListQuery(query: BookListQuery) {
+  const params = new URLSearchParams();
+  if (query.status) params.set("status", toApiStatus(query.status));
+  if (query.tag) params.set("tag", query.tag);
+  if (query.search) params.set("search", query.search);
+  if (query.page) params.set("page", String(query.page));
+  if (query.limit) params.set("limit", String(query.limit));
+  const encoded = params.toString();
+  return encoded ? `?${encoded}` : "";
+}
+
 export const bookService = {
   async list(): Promise<Book[]> {
     if (usingMockBackend) return mockBackend.listBooks();
     const response = await httpClient.get<ListBooksResponse | ApiBook[]>("/books");
     const books = Array.isArray(response) ? response : response.books;
     return books.map(toUiBook);
+  },
+
+  async listQuery(query: BookListQuery): Promise<BookListResult> {
+    if (usingMockBackend) {
+      const books = await mockBackend.listBooks();
+      return { books };
+    }
+
+    const response = await httpClient.get<ListBooksResponse | ApiBook[]>(
+      `/books${toListQuery(query)}`,
+    );
+
+    if (Array.isArray(response)) {
+      return { books: response.map(toUiBook) };
+    }
+
+    return {
+      books: response.books.map(toUiBook),
+      pagination: response.pagination,
+    };
   },
 
   async get(id: string): Promise<Book> {

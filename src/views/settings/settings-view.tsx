@@ -246,7 +246,7 @@ export function SettingsView() {
             <Button variant="danger-soft" onClick={() => setClearConfirmOpen(true)}>
               Clear collection
             </Button>
-            <Button variant="ghost" onClick={logout} className="sm:col-span-2 sm:justify-start">
+            <Button variant="ghost" onClick={() => void logout()} className="sm:col-span-2 sm:justify-start">
               Log out
             </Button>
           </div>

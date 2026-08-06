@@ -1,10 +1,17 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useBooks } from "@/controllers/books-controller";
-import { useBookFilters } from "@/controllers/use-book-filters";
+import {
+  BOOK_STATUS_LIST,
+  compareBooks,
+  type Book,
+  type BookStatus,
+  type SortOption,
+} from "@/models/book.model";
 import { routes } from "@/lib/routes";
 import { pluralize } from "@/lib/format";
+import { bookService } from "@/services/book.service";
 import { PageHeader } from "@/components/layout/page-header";
 import { BookCard } from "@/components/books/book-card";
 import { buttonStyles } from "@/components/ui/button";
@@ -13,20 +20,105 @@ import { LoadingPanel } from "@/components/ui/spinner";
 import { IconCollection, IconPlus, IconSearch } from "@/components/ui/icons";
 import { FilterBar } from "./filter-bar";
 
+const PAGE_SIZE = 20;
+
+interface FiltersState {
+  query: string;
+  status: BookStatus | "all";
+  tags: string[];
+  sort: SortOption;
+}
+
+const INITIAL_FILTERS: FiltersState = {
+  query: "",
+  status: "all",
+  tags: [],
+  sort: "recent",
+};
+
 export function CollectionView() {
-  const { books, status, error, reload } = useBooks();
-  const {
-    filters,
-    visibleBooks,
-    availableTags,
-    counts,
-    isFiltered,
-    setQuery,
-    setStatus,
-    setSort,
-    toggleTag,
-    reset,
-  } = useBookFilters(books);
+  const [filters, setFilters] = useState<FiltersState>(INITIAL_FILTERS);
+  const [books, setBooks] = useState<Book[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<{
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  } | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
+
+  const debouncedQuery = useDebouncedValue(filters.query, 300);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setStatus("loading");
+      setError(null);
+
+      try {
+        const response = await bookService.listQuery({
+          status: filters.status === "all" ? undefined : filters.status,
+          tag: filters.tags[0],
+          search: debouncedQuery.trim() || undefined,
+          page,
+          limit: PAGE_SIZE,
+        });
+
+        if (cancelled) return;
+
+        const sorted = [...response.books].sort(compareBooks(filters.sort));
+        setBooks(sorted);
+        setPagination(response.pagination ?? null);
+        setStatus("ready");
+      } catch (caught) {
+        if (cancelled) return;
+        setError(caught instanceof Error ? caught.message : "Failed to load books.");
+        setStatus("error");
+      }
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filters.status, filters.tags, filters.sort, debouncedQuery, page, reloadTick]);
+
+  const availableTags = useMemo(() => {
+    const tags = new Set<string>();
+    for (const book of books) {
+      for (const tag of book.tags) tags.add(tag);
+    }
+    return [...tags].sort((a, b) => a.localeCompare(b));
+  }, [books]);
+
+  const counts = useMemo(() => {
+    const byStatus: Record<BookStatus, number> = {
+      "want-to-read": 0,
+      reading: 0,
+      completed: 0,
+    };
+    for (const book of books) byStatus[book.status] += 1;
+    return { total: books.length, byStatus };
+  }, [books]);
+
+  const isFiltered =
+    filters.query.trim() !== "" ||
+    filters.status !== "all" ||
+    filters.tags.length > 0;
+
+  function reset() {
+    setFilters(INITIAL_FILTERS);
+    setPage(1);
+  }
+
+  function reload() {
+    setReloadTick((current) => current + 1);
+  }
 
   if (status === "loading") return <LoadingPanel label="Opening your collection" />;
 
@@ -38,7 +130,7 @@ export function CollectionView() {
         action={
           <button
             type="button"
-            onClick={() => void reload()}
+            onClick={reload}
             className={buttonStyles("secondary", "sm")}
           >
             Try again
@@ -59,7 +151,9 @@ export function CollectionView() {
         description={
           shelfIsEmpty
             ? "Nothing here yet."
-            : `${visibleBooks.length} of ${books.length} ${pluralize(books.length, "book")}`
+            : pagination
+              ? `${pagination.total} ${pluralize(pagination.total, "book")} total`
+              : `${books.length} ${pluralize(books.length, "book")}`
         }
         action={
           <Link href={routes.newBook} className={buttonStyles("primary", "md")}>
@@ -90,14 +184,30 @@ export function CollectionView() {
             sort={filters.sort}
             counts={counts}
             isFiltered={isFiltered}
-            onQueryChange={setQuery}
-            onStatusChange={setStatus}
-            onTagToggle={toggleTag}
-            onSortChange={setSort}
+            onQueryChange={(query) => {
+              setFilters((current) => ({ ...current, query }));
+              setPage(1);
+            }}
+            onStatusChange={(statusValue) => {
+              setFilters((current) => ({ ...current, status: statusValue }));
+              setPage(1);
+            }}
+            onTagToggle={(tag) => {
+              setFilters((current) => ({
+                ...current,
+                tags: current.tags.includes(tag)
+                  ? current.tags.filter((existing) => existing !== tag)
+                  : [tag],
+              }));
+              setPage(1);
+            }}
+            onSortChange={(sort) =>
+              setFilters((current) => ({ ...current, sort }))
+            }
             onReset={reset}
           />
 
-          {visibleBooks.length === 0 ? (
+          {books.length === 0 ? (
             <EmptyState
               icon={<IconSearch />}
               title="No books match those filters"
@@ -113,16 +223,57 @@ export function CollectionView() {
               }
             />
           ) : (
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {visibleBooks.map((book) => (
-                <li key={book.id} className="flex">
-                  <BookCard book={book} />
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                {books.map((book) => (
+                  <li key={book.id} className="flex">
+                    <BookCard book={book} />
+                  </li>
+                ))}
+              </ul>
+
+              {pagination && pagination.totalPages > 1 && (
+                <div className="flex items-center justify-between gap-3 pt-2">
+                  <button
+                    type="button"
+                    className={buttonStyles("secondary", "sm")}
+                    disabled={pagination.page <= 1}
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  >
+                    Previous
+                  </button>
+                  <p className="text-xs text-ink-subtle">
+                    Page {pagination.page} of {pagination.totalPages}
+                  </p>
+                  <button
+                    type="button"
+                    className={buttonStyles("secondary", "sm")}
+                    disabled={pagination.page >= pagination.totalPages}
+                    onClick={() =>
+                      setPage((current) =>
+                        Math.min(pagination.totalPages, current + 1),
+                      )
+                    }
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
     </>
   );
+}
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [value, delayMs]);
+
+  return debounced;
 }
