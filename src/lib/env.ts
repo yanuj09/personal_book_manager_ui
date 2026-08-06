@@ -5,7 +5,7 @@
  * and the app talks to it over HTTP. Leave it unset and the app runs against
  * the in-browser mock so the UI is demoable on its own.
  */
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+const apiBaseUrl = process.env.PRODUCTION_BASE_URL?.trim() || process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
 const apiUrl =  process.env.PRODUCTION_BASE_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim()  ;
 
 export const env = {
