@@ -22,6 +22,9 @@ import { IconCollection, IconPlus, IconSearch } from "@/components/ui/icons";
 import { FilterBar } from "./filter-bar";
 
 const PAGE_SIZE = 20;
+const PAGINATION_WINDOW = 5;
+
+type PaginationItem = number | "ellipsis-left" | "ellipsis-right";
 
 interface FiltersState {
   query: string;
@@ -118,6 +121,48 @@ export function CollectionView() {
     filters.query.trim() !== "" ||
     filters.status !== "all" ||
     filters.tags.length > 0;
+
+  const shouldShowPagination =
+    pagination !== null &&
+    pagination.total > pagination.limit &&
+    pagination.totalPages > 1;
+
+  const pageButtons = useMemo(() => {
+    if (!pagination || pagination.totalPages <= 1) return [] as PaginationItem[];
+
+    const totalPages = pagination.totalPages;
+    const currentPage = pagination.page;
+
+    if (totalPages <= PAGINATION_WINDOW + 2) {
+      const allPages: PaginationItem[] = [];
+      for (let nextPage = 1; nextPage <= totalPages; nextPage += 1) {
+        allPages.push(nextPage);
+      }
+      return allPages;
+    }
+
+    const half = Math.floor(PAGINATION_WINDOW / 2);
+    let start = Math.max(2, currentPage - half);
+    let end = Math.min(totalPages - 1, start + PAGINATION_WINDOW - 1);
+    start = Math.max(2, end - PAGINATION_WINDOW + 1);
+
+    const items: PaginationItem[] = [1];
+
+    if (start > 2) {
+      items.push("ellipsis-left");
+    }
+
+    for (let nextPage = start; nextPage <= end; nextPage += 1) {
+      items.push(nextPage);
+    }
+
+    if (end < totalPages - 1) {
+      items.push("ellipsis-right");
+    }
+
+    items.push(totalPages);
+    return items;
+  }, [pagination]);
 
   function reset() {
     setFilters(INITIAL_FILTERS);
@@ -240,7 +285,7 @@ export function CollectionView() {
                 ))}
               </ul>
 
-              {pagination && pagination.totalPages > 1 && (
+              {shouldShowPagination && pagination && (
                 <div className="flex items-center justify-between gap-3 pt-2">
                   <button
                     type="button"
@@ -250,9 +295,38 @@ export function CollectionView() {
                   >
                     Previous
                   </button>
-                  <p className="text-xs text-ink-subtle">
-                    Page {pagination.page} of {pagination.totalPages}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    {pageButtons.map((pageNumber, index) => {
+                      if (typeof pageNumber !== "number") {
+                        return (
+                          <span
+                            key={`${pageNumber}-${index}`}
+                            className="px-1 text-xs text-ink-subtle"
+                            aria-hidden
+                          >
+                            ...
+                          </span>
+                        );
+                      }
+
+                      const isActive = pageNumber === pagination.page;
+                      return (
+                        <button
+                          key={pageNumber}
+                          type="button"
+                          onClick={() => setPage(pageNumber)}
+                          disabled={isActive}
+                          className={buttonStyles(
+                            isActive ? "primary" : "secondary",
+                            "sm",
+                          )}
+                          aria-current={isActive ? "page" : undefined}
+                        >
+                          {pageNumber}
+                        </button>
+                      );
+                    })}
+                  </div>
                   <button
                     type="button"
                     className={buttonStyles("secondary", "sm")}

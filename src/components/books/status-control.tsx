@@ -30,7 +30,7 @@ export function StatusControl({
       role="radiogroup"
       aria-label="Reading status"
       className={cn(
-        "inline-flex rounded-lg bg-surface-sunken p-0.5",
+        "flex w-full max-w-full items-stretch overflow-hidden rounded-lg bg-surface-sunken p-0.5",
         disabled && "opacity-60",
         className,
       )}
@@ -47,18 +47,18 @@ export function StatusControl({
             onClick={() => !active && onChange(meta.value)}
             title={meta.label}
             className={cn(
-              "rounded-[7px] font-medium transition-all duration-150 whitespace-nowrap",
-              size === "sm" ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-xs",
+              "flex min-w-0 flex-1 items-center justify-center gap-1 rounded-[7px] font-medium transition-all duration-150",
+              size === "sm" ? "px-2 py-1 text-[11px]" : "px-2.5 py-1.5 text-xs",
               active
                 ? cn(meta.pillActiveClass, "shadow-sm")
                 : "text-ink-muted hover:text-ink",
               disabled && "cursor-not-allowed",
             )}
           >
-            <span aria-hidden="true" className="mr-1">
+            <span aria-hidden="true" className="shrink-0">
               {meta.emoji}
             </span>
-            {meta.shortLabel}
+            <span className="truncate">{meta.shortLabel}</span>
           </button>
         );
       })}
