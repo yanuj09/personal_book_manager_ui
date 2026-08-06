@@ -26,7 +26,7 @@ interface AuthContextValue {
   status: AuthStatus;
   login: (credentials: Credentials) => Promise<void>;
   signup: (payload: SignupPayload) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   /** Push a locally-updated user (e.g. after a profile save) into the session. */
   setUser: (user: User) => void;
 }
@@ -108,10 +108,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [adoptSession],
   );
 
-  const logout = useCallback(() => {
-    tokenStorage.clear();
-    setUserState(null);
-    setStatus("unauthenticated");
+  const logout = useCallback(async () => {
+    try {
+      await authService.logout();
+    } catch {
+      // Always clear local session even if server logout fails.
+    } finally {
+      tokenStorage.clear();
+      setUserState(null);
+      setStatus("unauthenticated");
+    }
   }, []);
 
   const setUser = useCallback((next: User) => {

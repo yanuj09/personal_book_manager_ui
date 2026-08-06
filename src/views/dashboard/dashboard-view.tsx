@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { BookStatus } from "@/models/book.model";
 import { compareBooks } from "@/models/book.model";
 import { useBooks } from "@/controllers/books-controller";
@@ -10,6 +11,8 @@ import { useAuth } from "@/providers/auth-provider";
 import { useToast } from "@/providers/toast-provider";
 import { routes } from "@/lib/routes";
 import { pluralize } from "@/lib/format";
+import type { DashboardSummary } from "@/services/book.service";
+import { bookService } from "@/services/book.service";
 import { PageHeader } from "@/components/layout/page-header";
 import { BookRow } from "@/components/books/book-row";
 import { buttonStyles } from "@/components/ui/button";
@@ -30,19 +33,61 @@ import { StatCard } from "./stat-card";
 const RECENT_LIMIT = 8;
 
 export function DashboardView() {
+  const pathname = usePathname();
   const { books, status, error, reload, changeStatus } = useBooks();
   const stats = useReadingStats(books);
   const { user } = useAuth();
   const { notify } = useToast();
+  const [dashboard, setDashboard] = useState<DashboardSummary | null>(null);
 
   // Ids with a status change in flight, so their control locks while it saves.
   const [pending, setPending] = useState<string[]>([]);
 
   async function onStatusChange(id: string, next: BookStatus) {
+    const previousSnapshot = dashboard?.books.find((book) => book.id === id);
+
+    setDashboard((current) => {
+      if (!current) return current;
+
+      return {
+        ...current,
+        books: current.books.map((book) => {
+          if (book.id !== id) return book;
+
+          const nextProgress =
+            next === "completed"
+              ? 100
+              : next === "want-to-read"
+                ? 0
+                : book.progress;
+
+          return {
+            ...book,
+            status: next,
+            progress: nextProgress,
+            completedAt:
+              next === "completed" ? new Date().toISOString() : null,
+          };
+        }),
+      };
+    });
+
     setPending((current) => [...current, id]);
     try {
       await changeStatus(id, next);
     } catch (caught) {
+      if (previousSnapshot) {
+        setDashboard((current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            books: current.books.map((book) =>
+              book.id === id ? previousSnapshot : book,
+            ),
+          };
+        });
+      }
+
       notify(
         caught instanceof Error ? caught.message : "Couldn't update that book.",
         "error",
@@ -51,6 +96,34 @@ export function DashboardView() {
       setPending((current) => current.filter((pendingId) => pendingId !== id));
     }
   }
+
+  useEffect(() => {
+    if (pathname !== routes.dashboard) return;
+
+    let cancelled = false;
+
+    async function loadDashboard() {
+      try {
+        const next = await bookService.dashboard();
+        if (cancelled) return;
+        setDashboard(next);
+      } catch {
+        if (cancelled) return;
+        setDashboard(null);
+      }
+    }
+
+    void loadDashboard();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
+
+  const booksById = useMemo(
+    () => new Map(books.map((book) => [book.id, book])),
+    [books],
+  );
 
   if (status === "loading") return <LoadingPanel label="Gathering your shelf" />;
 
@@ -73,7 +146,14 @@ export function DashboardView() {
   }
 
   const firstName = user?.name?.trim().split(/\s+/)[0] ?? "reader";
-  const recentBooks = [...books].sort(compareBooks("recent")).slice(0, RECENT_LIMIT);
+  const recentBooks = dashboard
+    ? dashboard.books
+        .map((book) => booksById.get(book.id) ?? book)
+        .slice(0, RECENT_LIMIT)
+    : [...books].sort(compareBooks("recent")).slice(0, RECENT_LIMIT);
+  const totalBooks = dashboard?.metrics.totalBooks ?? stats.total;
+  const currentlyReading = dashboard?.metrics.currentlyReading ?? stats.reading;
+  const completedBooks = dashboard?.metrics.completedBooks ?? stats.completed;
 
   return (
     <>
@@ -82,7 +162,7 @@ export function DashboardView() {
         description={
           books.length === 0
             ? "Your shelf is empty — let's fix that."
-            : `${books.length} ${pluralize(books.length, "book")} on the shelf, ${stats.reading} in progress.`
+            : `${totalBooks} ${pluralize(totalBooks, "book")} on the shelf, ${currentlyReading} in progress.`
         }
         action={
           <Link
@@ -98,7 +178,7 @@ export function DashboardView() {
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard
           label="Total books"
-          value={stats.total}
+          value={totalBooks}
           icon={<IconStack />}
           footnote={
             stats.wantToRead > 0
@@ -108,25 +188,17 @@ export function DashboardView() {
         />
         <StatCard
           label="Currently reading"
-          value={stats.reading}
+          value={currentlyReading}
           icon={<IconBookOpen />}
           accentClassName="bg-warning-soft text-warning"
-          footnote={
-            stats.reading > 0
-              ? `${stats.averageProgress}% average progress`
-              : undefined
-          }
+          footnote={currentlyReading > 0 ? "Keep your streak going" : undefined}
         />
         <StatCard
           label="Completed"
-          value={stats.completed}
+          value={completedBooks}
           icon={<IconCheckCircle />}
           accentClassName="bg-success-soft text-success"
-          footnote={
-            stats.total > 0
-              ? `${stats.completionRate}% of your collection`
-              : undefined
-          }
+          footnote={completedBooks > 0 ? `${completedBooks} finished so far` : undefined}
         />
       </div>
 

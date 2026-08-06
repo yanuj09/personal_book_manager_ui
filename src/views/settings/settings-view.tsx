@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useBooks } from "@/controllers/books-controller";
 import { validatePasswordChange, validateProfile } from "@/models/validation";
 import { authService } from "@/services/auth.service";
@@ -47,6 +47,28 @@ export function SettingsView() {
       profile.name !== (user?.name ?? "") || profile.email !== (user?.email ?? "")
     );
   }, [profile, user]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfile() {
+      try {
+        const fresh = await authService.me();
+        if (cancelled) return;
+        setUser(fresh);
+        setProfile({ name: fresh.name, email: fresh.email });
+      } catch {
+        if (cancelled) return;
+        notify("Could not refresh profile.", "error");
+      }
+    }
+
+    void loadProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [notify, setUser]);
 
   async function submitProfile() {
     const errors = validateProfile(profile);
@@ -224,7 +246,7 @@ export function SettingsView() {
             <Button variant="danger-soft" onClick={() => setClearConfirmOpen(true)}>
               Clear collection
             </Button>
-            <Button variant="ghost" onClick={logout} className="sm:col-span-2 sm:justify-start">
+            <Button variant="ghost" onClick={() => void logout()} className="sm:col-span-2 sm:justify-start">
               Log out
             </Button>
           </div>

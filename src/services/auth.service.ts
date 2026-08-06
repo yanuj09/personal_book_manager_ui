@@ -6,7 +6,7 @@
  * which backend answered.
  */
 
-import { usingMockBackend } from "@/config/env";
+import { usingMockBackend } from "@/lib/env";
 import type {
   AuthSession,
   Credentials,
@@ -15,37 +15,79 @@ import type {
   SignupPayload,
   User,
 } from "@/models/user.model";
-import { httpClient } from "./http-client";
+import { httpClient } from "@/services/http-client";
 import { mockBackend } from "./mock/mock-backend";
 
+interface ApiUser {
+  _id?: string;
+  id?: string;
+  name: string;
+  email: string;
+}
+
+interface UserEnvelope {
+  user: ApiUser;
+}
+
+interface ApiAuthSession {
+  token: string;
+  user: ApiUser;
+}
+
+function toUser(user: ApiUser): User {
+  return {
+    id: user._id ?? user.id ?? "",
+    name: user.name,
+    email: user.email,
+  };
+}
+
+function toAuthSession(session: ApiAuthSession): AuthSession {
+  return {
+    token: session.token,
+    user: toUser(session.user),
+  };
+}
+
 export const authService = {
-  signup(payload: SignupPayload): Promise<AuthSession> {
+  async signup(payload: SignupPayload): Promise<AuthSession> {
     if (usingMockBackend) return mockBackend.signup(payload);
-    return httpClient.post<AuthSession>("/api/auth/signup", { ...payload }, {
+    const response = await httpClient.post<ApiAuthSession>("/auth/signup", { ...payload }, {
       anonymous: true,
     });
+    return toAuthSession(response);
   },
 
-  login(credentials: Credentials): Promise<AuthSession> {
+  async login(credentials: Credentials): Promise<AuthSession> {
     if (usingMockBackend) return mockBackend.login(credentials);
-    return httpClient.post<AuthSession>("/api/auth/login", { ...credentials }, {
+    const response = await httpClient.post<ApiAuthSession>("/auth/login", { ...credentials }, {
       anonymous: true,
     });
+    return toAuthSession(response);
   },
 
   /** Verifies a stored token is still good and returns the fresh user. */
-  me(): Promise<User> {
+  async me(): Promise<User> {
     if (usingMockBackend) return mockBackend.me();
-    return httpClient.get<User>("/api/auth/me");
+    const response = await httpClient.get<UserEnvelope>("/profile");
+    return toUser(response.user);
   },
 
-  updateProfile(update: ProfileUpdate): Promise<User> {
+  async updateProfile(update: ProfileUpdate): Promise<User> {
     if (usingMockBackend) return mockBackend.updateProfile(update);
-    return httpClient.patch<User>("/api/auth/profile", { ...update });
+    const response = await httpClient.patch<UserEnvelope>("/profile", {
+      ...update,
+    });
+    return toUser(response.user);
   },
 
   changePassword(change: PasswordChange): Promise<void> {
     if (usingMockBackend) return mockBackend.changePassword(change);
-    return httpClient.post<void>("/api/auth/password", { ...change });
+    return httpClient.patch<void>("/profile/password", { ...change });
+  },
+
+  logout(): Promise<void> {
+    if (usingMockBackend) return Promise.resolve();
+    return httpClient.post<void>("/auth/logout");
   },
 };

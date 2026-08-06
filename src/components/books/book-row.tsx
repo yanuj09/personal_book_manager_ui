@@ -4,7 +4,6 @@ import Link from "next/link";
 import type { Book, BookStatus } from "@/models/book.model";
 import { routes } from "@/lib/routes";
 import { formatRelative } from "@/lib/format";
-import { ProgressBar } from "@/components/ui/progress-bar";
 import { BookCover } from "./book-cover";
 import { StatusControl } from "./status-control";
 
@@ -37,13 +36,6 @@ export function BookRow({ book, onStatusChange, busy = false }: BookRowProps) {
               {formatRelative(book.updatedAt)}
             </span>
           </p>
-          {book.status === "reading" && (
-            <ProgressBar
-              value={book.progress}
-              showValue
-              className="mt-1.5 max-w-56"
-            />
-          )}
         </div>
       </Link>
 

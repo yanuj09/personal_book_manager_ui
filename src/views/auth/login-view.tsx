@@ -44,14 +44,6 @@ export function LoginView() {
             error={errors.password}
             onChange={(event) => setField("password", event.target.value)}
           />
-          <div className="flex justify-end">
-            <button
-              type="button"
-              className="text-xs text-ink-subtle underline-offset-2 transition-colors hover:text-primary hover:underline"
-            >
-              Forgot password?
-            </button>
-          </div>
         </div>
 
         <Button type="submit" fullWidth loading={submitting}>

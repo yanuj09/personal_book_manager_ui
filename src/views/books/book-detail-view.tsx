@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useBooks } from "@/controllers/books-controller";
 import { routes } from "@/lib/routes";
 import { formatDate, formatRelative } from "@/lib/format";
+import { bookService } from "@/services/book.service";
+import type { Book } from "@/models/book.model";
 import { useToast } from "@/providers/toast-provider";
 import { PageHeader } from "@/components/layout/page-header";
 import { BookCover } from "@/components/books/book-cover";
@@ -14,7 +16,6 @@ import { Button, buttonStyles } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ProgressBar } from "@/components/ui/progress-bar";
 import { LoadingPanel } from "@/components/ui/spinner";
 import { StatusBadge, TagBadge } from "@/components/ui/badge";
 import { IconChevronLeft, IconPencil, IconTrash } from "@/components/ui/icons";
@@ -22,11 +23,46 @@ import { IconChevronLeft, IconPencil, IconTrash } from "@/components/ui/icons";
 export function BookDetailView({ id }: { id: string }) {
   const router = useRouter();
   const { notify } = useToast();
-  const { status, error, reload, findBook, changeStatus, deleteBook } = useBooks();
+  const { status, error, reload, findBook, updateBook, deleteBook } = useBooks();
 
   const [savingStatus, setSavingStatus] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [fetchedBook, setFetchedBook] = useState<Book | null>(null);
+  const [fetchingBook, setFetchingBook] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const bookFromCollection = findBook(id);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadBook() {
+      if (status !== "ready" || bookFromCollection) return;
+
+      setFetchingBook(true);
+      setFetchError(null);
+
+      try {
+        const book = await bookService.get(id);
+        if (cancelled) return;
+        setFetchedBook(book);
+      } catch (caught) {
+        if (cancelled) return;
+        setFetchError(
+          caught instanceof Error ? caught.message : "Could not load this book.",
+        );
+      } finally {
+        if (!cancelled) setFetchingBook(false);
+      }
+    }
+
+    void loadBook();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, status, bookFromCollection]);
 
   if (status === "loading") {
     return <LoadingPanel label="Loading book" />;
@@ -50,12 +86,16 @@ export function BookDetailView({ id }: { id: string }) {
     );
   }
 
-  const book = findBook(id);
+  if (fetchingBook) {
+    return <LoadingPanel label="Loading book" />;
+  }
+
+  const book = bookFromCollection ?? fetchedBook;
   if (!book) {
     return (
       <EmptyState
         title="Book not found"
-        description="It may have been removed from your shelf."
+        description={fetchError ?? "It may have been removed from your shelf."}
         action={
           <Link href={routes.collection} className={buttonStyles("secondary", "sm")}>
             Back to collection
@@ -72,7 +112,8 @@ export function BookDetailView({ id }: { id: string }) {
 
     setSavingStatus(true);
     try {
-      await changeStatus(currentBook.id, next);
+      const updated = await updateBook(currentBook.id, { status: next });
+      setFetchedBook(updated);
       notify("Status updated.", "success");
     } catch (caught) {
       notify(
@@ -162,15 +203,12 @@ export function BookDetailView({ id }: { id: string }) {
         <div className="space-y-6">
           <Card>
             <CardHeader title="Reading status" />
-            <div className="mt-3 space-y-3">
+            <div className="mt-3">
               <StatusControl
                 value={currentBook.status}
                 onChange={onStatusChange}
                 disabled={savingStatus}
               />
-              {currentBook.status === "reading" && (
-                <ProgressBar value={currentBook.progress} showValue />
-              )}
             </div>
           </Card>
 

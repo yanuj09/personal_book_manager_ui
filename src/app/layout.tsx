@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import { AppProviders } from "@/providers/app-providers";
-import { env } from "@/config/env";
+import { env } from "@/lib/env";
 import { themeInitScript } from "@/lib/theme";
 import "./globals.css";
 
