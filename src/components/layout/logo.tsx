@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/cn";
-import { env } from "@/config/env";
+import { env } from "@/lib/env";
 import { Wordmark } from "@/components/ui/icons";
 import { routes } from "@/lib/routes";
 

@@ -3,7 +3,7 @@
  * interchangeable backends.
  */
 
-import { usingMockBackend } from "@/config/env";
+import { usingMockBackend } from "@/lib/env";
 import type { Book, BookDraft } from "@/models/book.model";
 import { httpClient } from "./http-client";
 import { mockBackend } from "./mock/mock-backend";

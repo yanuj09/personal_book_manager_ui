@@ -6,7 +6,7 @@
  * which backend answered.
  */
 
-import { usingMockBackend } from "@/config/env";
+import { usingMockBackend } from "@/lib/env";
 import type {
   AuthSession,
   Credentials,
