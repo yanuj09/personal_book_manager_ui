@@ -26,7 +26,7 @@ export function BookCover({ book, size = "md", className }: BookCoverProps) {
   return (
     <div
       className={cn(
-        "relative flex aspect-[3/4] flex-col justify-between overflow-hidden shadow-sm",
+        "relative flex aspect-3/4 flex-col justify-between overflow-hidden shadow-sm",
         SIZE_STYLES[size],
         className,
       )}
@@ -42,7 +42,7 @@ export function BookCover({ book, size = "md", className }: BookCoverProps) {
       {/* A soft sheen so flat colour doesn't read as a plain div. */}
       <span
         aria-hidden="true"
-        className="absolute inset-0 bg-gradient-to-br from-white/12 via-transparent to-black/15"
+        className="absolute inset-0 bg-linear-to-br from-white/12 via-transparent to-black/15"
       />
 
       <p className="relative line-clamp-4 pl-[8%] font-semibold leading-tight text-white/95">
