@@ -15,7 +15,7 @@ import type {
   SignupPayload,
   User,
 } from "@/models/user.model";
-import { httpClient } from "./http-client";
+import { httpClient } from "@/services/http-client";
 import { mockBackend } from "./mock/mock-backend";
 
 interface UserEnvelope {

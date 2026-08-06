@@ -5,7 +5,7 @@
 
 import { usingMockBackend } from "@/lib/env";
 import type { Book, BookDraft } from "@/models/book.model";
-import { httpClient } from "./http-client";
+import { httpClient } from "@/services/http-client";
 import { mockBackend } from "./mock/mock-backend";
 
 type ApiBookStatus = "want_to_read" | "reading" | "completed";
@@ -29,6 +29,24 @@ interface ListBooksResponse {
 
 interface BookEnvelope {
   book: ApiBook;
+}
+
+interface DashboardResponse {
+  metrics: {
+    totalBooks: number;
+    currentlyReading: number;
+    completedBooks: number;
+  };
+  books: ApiBook[];
+}
+
+export interface DashboardSummary {
+  metrics: {
+    totalBooks: number;
+    currentlyReading: number;
+    completedBooks: number;
+  };
+  books: Book[];
 }
 
 function toUiStatus(status: ApiBookStatus | undefined): Book["status"] {
@@ -120,5 +138,34 @@ export const bookService = {
   remove(id: string): Promise<void> {
     if (usingMockBackend) return mockBackend.deleteBook(id);
     return httpClient.delete<void>(`/books/${id}`);
+  },
+
+  async dashboard(): Promise<DashboardSummary> {
+    if (usingMockBackend) {
+      const books = await mockBackend.listBooks();
+      const recentBooks = [...books]
+        .sort(
+          (a, b) =>
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+        )
+        .slice(0, 12);
+
+      return {
+        metrics: {
+          totalBooks: books.length,
+          currentlyReading: books.filter((book) => book.status === "reading")
+            .length,
+          completedBooks: books.filter((book) => book.status === "completed")
+            .length,
+        },
+        books: recentBooks,
+      };
+    }
+
+    const response = await httpClient.get<DashboardResponse>("/books/dashboard");
+    return {
+      metrics: response.metrics,
+      books: response.books.map(toUiBook),
+    };
   },
 };
