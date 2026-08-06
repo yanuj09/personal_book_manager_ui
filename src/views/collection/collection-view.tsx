@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   BOOK_STATUS_LIST,
   compareBooks,
@@ -37,6 +38,7 @@ const INITIAL_FILTERS: FiltersState = {
 };
 
 export function CollectionView() {
+  const pathname = usePathname();
   const [filters, setFilters] = useState<FiltersState>(INITIAL_FILTERS);
   const [books, setBooks] = useState<Book[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -53,6 +55,8 @@ export function CollectionView() {
   const debouncedQuery = useDebouncedValue(filters.query, 300);
 
   useEffect(() => {
+    if (pathname !== routes.collection) return;
+
     let cancelled = false;
 
     async function load() {
@@ -70,8 +74,7 @@ export function CollectionView() {
 
         if (cancelled) return;
 
-        const sorted = [...response.books].sort(compareBooks(filters.sort));
-        setBooks(sorted);
+        setBooks(response.books);
         setPagination(response.pagination ?? null);
         setStatus("ready");
       } catch (caught) {
@@ -86,7 +89,12 @@ export function CollectionView() {
     return () => {
       cancelled = true;
     };
-  }, [filters.status, filters.tags, filters.sort, debouncedQuery, page, reloadTick]);
+  }, [pathname, filters.status, filters.tags, debouncedQuery, page, reloadTick]);
+
+  const visibleBooks = useMemo(
+    () => [...books].sort(compareBooks(filters.sort)),
+    [books, filters.sort],
+  );
 
   const availableTags = useMemo(() => {
     const tags = new Set<string>();
@@ -207,7 +215,7 @@ export function CollectionView() {
             onReset={reset}
           />
 
-          {books.length === 0 ? (
+          {visibleBooks.length === 0 ? (
             <EmptyState
               icon={<IconSearch />}
               title="No books match those filters"
@@ -225,7 +233,7 @@ export function CollectionView() {
           ) : (
             <>
               <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {books.map((book) => (
+                {visibleBooks.map((book) => (
                   <li key={book.id} className="flex">
                     <BookCard book={book} />
                   </li>

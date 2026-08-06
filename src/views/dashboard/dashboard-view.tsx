@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { BookStatus } from "@/models/book.model";
 import { compareBooks } from "@/models/book.model";
 import { useBooks } from "@/controllers/books-controller";
@@ -32,6 +33,7 @@ import { StatCard } from "./stat-card";
 const RECENT_LIMIT = 8;
 
 export function DashboardView() {
+  const pathname = usePathname();
   const { books, status, error, reload, changeStatus } = useBooks();
   const stats = useReadingStats(books);
   const { user } = useAuth();
@@ -56,6 +58,8 @@ export function DashboardView() {
   }
 
   useEffect(() => {
+    if (pathname !== routes.dashboard) return;
+
     let cancelled = false;
 
     async function loadDashboard() {
@@ -69,14 +73,12 @@ export function DashboardView() {
       }
     }
 
-    if (status === "ready") {
-      void loadDashboard();
-    }
+    void loadDashboard();
 
     return () => {
       cancelled = true;
     };
-  }, [status, books]);
+  }, [pathname]);
 
   if (status === "loading") return <LoadingPanel label="Gathering your shelf" />;
 
